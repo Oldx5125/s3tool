@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">S3 工具</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 24px; }
+        h1 { font-size: 24px; margin-bottom: 20px; color: #333; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+        .form-row label { width: 80px; flex-shrink: 0; color: #555; }
+        .form-row input[type="text"], .form-row input[type="password"] { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .form-row input[type="checkbox"] { margin-right: 6px; }
+        .checkbox-label { display: flex; align-items: center; color: #555; }
+        button { padding: 10px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #40a9ff; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .connect-btn { margin-left: auto; }
+        .divider { height: 1px; background: #eee; margin: 20px 0; }
+        .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 14px; color: #555; flex-wrap: wrap; }
+        .breadcrumb-item { color: #1890ff; cursor: pointer; }
+        .breadcrumb-item:hover { text-decoration: underline; }
+        .breadcrumb-item.current { color: #333; cursor: default; }
+        .breadcrumb-item.current:hover { text-decoration: none; }
+        .breadcrumb-sep { color: #999; }
+        .file-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .file-list-header h2 { font-size: 16px; color: #333; }
+        .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .file-actions button { padding: 6px 12px; font-size: 13px; }
+        .mkdir-btn { background: #13c2c2; }
+        .mkdir-btn:hover { background: #36cfc9; }
+        .upload-btn { background: #52c41a; }
+        .upload-btn:hover { background: #73d13d; }
+        .download-btn { background: #722ed1; }
+        .download-btn:hover { background: #9254de; }
+        .delete-btn { background: #ff4d4f; }
+        .delete-btn:hover { background: #ff7875; }
+        .cors-btn { background: #fa8c16; }
+        .cors-btn:hover { background: #ffa940; }
+        .logout-btn { background: #ff4d4f; }
+        .logout-btn:hover { background: #ff7875; }
+        .preview-btn { background: #1890ff; }
+        .rename-btn { background: #722ed1; }
+        .move-btn { background: #13c2c2; }
+        .copy-btn { background: #faad14; }
+        .select-btn { background: #8c8c8c; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #fafafa; font-weight: 500; color: #666; }
+        th.sortable { cursor: pointer; user-select: none; position: relative; padding-right: 20px; }
+        th.sortable:hover { background: #f0f0f0; }
+        th.sortable::after { content: '⇅'; position: absolute; right: 8px; color: #ccc; font-size: 12px; }
+        th.sortable.asc::after { content: '↑'; color: #1890ff; font-weight: bold; }
+        th.sortable.desc::after { content: '↓'; color: #1890ff; font-weight: bold; }
+        tr:hover { background: #fafafa; }
+        tr.selected { background: #e6f7ff; }
+        .file-key { color: #1890ff; cursor: pointer; }
+        .file-name { display: flex; align-items: center; gap: 6px; }
+        .folder-icon { color: #faad14; font-size: 16px; }
+        .file-icon { color: #888; font-size: 16px; }
+        .file-size { color: #888; }
+        .file-time { color: #888; font-size: 13px; }
+        .error-msg { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; display: none; }
+        .success-msg { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; display: none; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        #fileInput { display: none; }
+        .empty-state { text-align: center; padding: 40px; color: #999; }
+        .back-btn { background: #8c8c8c; margin-right: 8px; }
+        .back-btn:hover { background: #595959; }
+        .load-more-btn { width: 100%; margin-top: 12px; background: #f0f0f0; color: #666; }
+        .load-more-btn:hover { background: #e0e0e0; }
+        .load-more-btn:disabled { background: #f5f5f5; color: #ccc; }
+        .progress-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .progress-box { background: white; padding: 24px 32px; border-radius: 8px; text-align: center; min-width: 300px; }
+        .progress-bar { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; margin: 12px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: #1890ff; border-radius: 4px; transition: width 0.2s; }
+        .progress-text { color: #666; font-size: 14px; }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            min-width: 400px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-content h3 { margin-bottom: 16px; }
+        .modal-body textarea {
+            width: 100%;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .modal-body input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .modal-footer {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .example-btn { background: #13c2c2; }
+        .example-btn:hover { background: #36cfc9; }
+        .checkbox-col { width: 40px; text-align: center; }
+        .checkbox-col input { cursor: pointer; }
+        .selected-count { color: #1890ff; font-weight: 500; margin-left: 8px; }
+        .preview-content { max-height: 70vh; overflow: auto; }
+        .preview-content img { max-width: 100%; height: auto; }
+        .preview-content pre {
+            background: #f5f5f5;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .preview-content video, .preview-content audio { width: 100%; }
+        .preview-content iframe { width: 100%; height: 60vh; border: none; }
+        .upload-queue {
+            margin-top: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .upload-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .upload-item:last-child { border-bottom: none; }
+        .upload-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .upload-item .status { margin-left: 8px; font-size: 12px; }
+        .upload-item .status.success { color: #52c41a; }
+        .upload-item .status.error { color: #ff4d4f; }
+        .upload-item .status.pending { color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="h1Title">S3 工具</h1>
+
+        <div id="errorMsg" class="error-msg"></div>
+        <div id="successMsg" class="success-msg"></div>
+
+        <div class="form-row">
+            <label>Endpoint</label>
+            <input type="text" id="endpoint" placeholder="test-file.hengrui.com">
+            <label class="checkbox-label">
+                <input type="checkbox" id="ssl" checked>
+                SSL
+            </label>
+        </div>
+        <div class="form-row">
+            <label>AK</label>
+            <input type="text" id="ak" placeholder="Access Key">
+        </div>
+        <div class="form-row">
+            <label>SK</label>
+            <input type="password" id="sk" placeholder="Secret Key">
+        </div>
+        <div class="form-row">
+            <label>Bucket</label>
+            <select id="bucket" disabled style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+                <option value="" data-i18n="selectBucketFirst">请先列出存储桶</option>
+            </select>
+            <button type="button" id="listBucketsBtn" data-i18n="listBuckets" style="background:#faad14;">列出存储桶</button>
+            <button type="button" id="switchBucketBtn" data-i18n="switchBucket" style="display:none;background:#722ed1;">切换</button>
+            <button class="connect-btn" id="connectBtn" data-i18n="connect" disabled>连接</button>
+            <button class="logout-btn" id="logoutBtn" data-i18n="logout" style="display:none;">退出</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="breadcrumb" id="breadcrumb" style="display:none;">
+            <span class="breadcrumb-item current" data-i18n="rootDir">根目录</span>
+        </div>
+
+        <div class="file-list-header">
+            <h2><span data-i18n="fileList">文件列表</span><span id="selectedCount" class="selected-count" data-i18n="selected" style="display:none;"></span></h2>
+            <div class="file-actions">
+                <button class="select-btn" id="selectAllBtn" data-i18n="selectAll" disabled>全选</button>
+                <button class="back-btn" id="backBtn" data-i18n="back" disabled>返回上级</button>
+                <button class="mkdir-btn" id="mkdirBtn" data-i18n="newFolder" disabled>新建文件夹</button>
+                <button class="upload-btn" id="uploadBtn" data-i18n="upload" disabled>上传文件</button>
+                <button class="preview-btn" id="previewBtn" data-i18n="preview" disabled style="background:#1890ff;">预览</button>
+                <button class="rename-btn" id="renameBtn" data-i18n="rename" disabled style="background:#722ed1;">重命名</button>
+                <button class="move-btn" id="moveBtn" data-i18n="move" disabled style="background:#13c2c2;">移动</button>
+                <button class="copy-btn" id="copyBtn" data-i18n="copy" disabled style="background:#faad14;">复制</button>
+                <button class="download-btn" id="downloadBtn" data-i18n="download" disabled>下载</button>
+                <button class="delete-btn" id="deleteBtn" data-i18n="delete" disabled>删除</button>
+                <button class="cors-btn" id="corsBtn" data-i18n="cors" disabled>CORS</button>
+            </div>
+        </div>
+
+        <input type="file" id="fileInput" multiple>
+        <table id="fileTable">
+            <thead>
+                <tr>
+                    <th class="checkbox-col"><input type="checkbox" id="headerCheckbox" disabled></th>
+                    <th class="sortable asc" data-sort="name" data-i18n="fileName">文件名</th>
+                    <th class="sortable" data-sort="size" data-i18n="fileSize">大小</th>
+                    <th class="sortable" data-sort="lastModified" data-i18n="fileTime">修改时间</th>
+                </tr>
+            </thead>
+            <tbody id="fileBody">
+                <tr><td colspan="4" class="empty-state" data-i18n="connectFirst">请先连接 S3 存储</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- CORS配置弹窗 -->
+    <div id="corsModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 data-i18n="corsConfig">CORS配置</h3>
+            <div class="modal-body">
+                <textarea id="corsEditor" rows="15" data-i18n="corsPlaceholder" placeholder="输入CORS规则JSON..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="corsLoadExample" data-i18n="loadExample" class="example-btn">加载示例</button>
+                <button id="corsDelete" data-i18n="deleteCors" class="delete-btn">删除配置</button>
+                <button id="corsCancel" data-i18n="cancel">取消</button>
+                <button id="corsSave" data-i18n="save">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览弹窗 -->
+    <div id="previewModal" class="modal" style="display:none;">
+        <div class="modal-content" style="min-width:600px;">
+            <h3 id="previewTitle" data-i18n="filePreview">文件预览</h3>
+            <div class="modal-body preview-content" id="previewContent"></div>
+            <div class="modal-footer">
+                <button id="previewClose" data-i18n="close">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重命名弹窗 -->
+    <div id="renameModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 data-i18n="renameTitle">重命名</h3>
+            <div class="modal-body">
+                <p style="margin-bottom:8px;color:#666;" data-i18n="originalName">原名称：<span id="renameOldName"></span></p>
+                <input type="text" id="renameInput" data-i18n="newNamePlaceholder" placeholder="输入新名称">
+            </div>
+            <div class="modal-footer">
+                <button id="renameCancel" data-i18n="cancel">取消</button>
+                <button id="renameConfirm" data-i18n="confirm">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动/复制弹窗 -->
+    <div id="moveCopyModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 id="moveCopyTitle" data-i18n="moveFile">移动文件</h3>
+            <div class="modal-body">
+                <p style="margin-bottom:8px;color:#666;" data-i18n="currentPath">当前路径：<span id="moveCopySrc"></span></p>
+                <input type="text" id="moveCopyInput" data-i18n="targetPathPlaceholder" placeholder="输入目标路径（如：folder/newname.txt）">
+            </div>
+            <div class="modal-footer">
+                <button id="moveCopyCancel" data-i18n="cancel">取消</button>
+                <button id="moveCopyConfirm" data-i18n="confirm">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传队列弹窗 -->
+    <div id="uploadQueueModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 data-i18n="uploadQueue">上传队列</h3>
+            <div class="modal-body">
+                <div id="uploadQueueList" class="upload-queue"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="uploadQueueClose" data-i18n="close">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== i18n 基础设施 ==========
+        const i18n = {
+            zh: {
+                appTitle: 'S3 工具', connect: '连接', listBuckets: '列出存储桶', switchBucket: '切换', logout: '退出',
+                rootDir: '根目录', selectAll: '全选', back: '返回上级', newFolder: '新建文件夹', upload: '上传文件',
+                preview: '预览', rename: '重命名', move: '移动', copy: '复制', download: '下载', delete: '删除', cors: 'CORS',
+                fileName: '文件名', fileSize: '大小', fileTime: '修改时间', fileList: '文件列表', connectFirst: '请先连接 S3 存储',
+                corsConfig: 'CORS配置', corsPlaceholder: '输入CORS规则JSON...', loadExample: '加载示例',
+                deleteCors: '删除配置', cancel: '取消', save: '保存', filePreview: '文件预览', close: '关闭',
+                renameTitle: '重命名', originalName: '原名称', newNamePlaceholder: '输入新名称', confirm: '确认',
+                moveFile: '移动文件', copyFile: '复制文件', currentPath: '当前路径',
+                targetPathPlaceholder: '输入目标路径（如：folder/newname.txt）', uploadQueue: '上传队列',
+                selected: '已选 ${count} 项', selectBucketFirst: '请先列出存储桶', selectBucket: '请选择存储桶',
+                foundBuckets: '找到 ${count} 个存储桶', folderEmpty: '文件夹为空', loadMore: '加载更多',
+                endpointRequired: '请输入 Endpoint', endpointNoPath: 'Endpoint 不应包含路径',
+                bucketRequired: '请输入 Bucket 名称', bucketLength: 'Bucket 名称长度应为 3-63 个字符',
+                bucketChars: 'Bucket 名称只能包含小写字母、数字、点和连字符', corsLoadFailed: '加载CORS配置失败',
+                uploading: '上传中...', uploadingProgress: '上传中 ${percent}%', preparingUpload: '正在准备上传...',
+                akSkRequired: '请填写 AK 和 SK', bucketSelectRequired: '请选择存储桶', getBucketsFailed: '获取存储桶列表失败',
+                connectFailed: '连接失败', switchBucketSuccess: '已切换到存储桶', switchFailed: '切换失败',
+                noMoreFiles: '没有更多文件了', renameInvalidChars: '文件名不能包含 / 或 \\',
+                createFolderSuccess: '创建文件夹成功', createFolderFailed: '创建文件夹失败',
+                deleteSuccess: '删除成功', deleteFailed: '删除失败', deleteSelected: '请选择要删除的文件',
+                uploadSuccess: '上传成功', uploadFailed: '上传失败', uploadTimeout: '上传请求超时',
+                uploadPrepareFailed: '上传准备失败', downloadPrepareFailed: '下载准备失败', previewFailed: '预览失败',
+                previewNotSupported: '该文件类型不支持预览', moveSuccess: '移动成功', moveFailed: '移动失败',
+                copySuccess: '复制成功', copyFailed: '复制失败', renameSuccess: '重命名成功', renameFailed: '重命名失败',
+                corsSaveSuccess: 'CORS配置已保存', corsSaveFailed: '保存CORS配置失败', corsDeleteSuccess: 'CORS配置已删除',
+                corsDeleteFailed: '删除CORS配置失败', corsInvalid: 'CORS配置格式错误', noCORSConfig: '无CORS配置',
+                corsDeleteConfirm: '确定要删除CORS配置吗？',
+                waiting: '等待中',
+                uploadComplete: '上传完成: ${success} 成功, ${fail} 失败',
+                uploadProgressDetail: '上传中 ${percent}% (${loaded} / ${total})',
+                deleteConfirmFolders: '确定要删除选中的 ${count} 个项目吗？文件夹必须为空才能删除！',
+                deleteConfirmFiles: '确定要删除选中的 ${count} 个文件吗？此操作不可恢复！',
+                deleteResult: '删除完成: ${success} 成功, ${fail} 失败',
+                deleteSuccessCount: '成功删除 ${count} 个项目',
+                previewDownload: '点击下载',
+                previewNotAvailable: '无法预览此类型文件',
+            },
+            en: {
+                appTitle: 'S3 Tool', connect: 'Connect', listBuckets: 'List Buckets', switchBucket: 'Switch', logout: 'Logout',
+                rootDir: 'Root', selectAll: 'Select All', back: 'Go Back', newFolder: 'New Folder', upload: 'Upload',
+                preview: 'Preview', rename: 'Rename', move: 'Move', copy: 'Copy', download: 'Download', delete: 'Delete', cors: 'CORS',
+                fileName: 'Name', fileSize: 'Size', fileTime: 'Modified', fileList: 'File List', connectFirst: 'Please connect to S3 first',
+                corsConfig: 'CORS Config', corsPlaceholder: 'Enter CORS rules JSON...', loadExample: 'Load Example',
+                deleteCors: 'Delete Config', cancel: 'Cancel', save: 'Save', filePreview: 'File Preview', close: 'Close',
+                renameTitle: 'Rename', originalName: 'Original name', newNamePlaceholder: 'Enter new name', confirm: 'Confirm',
+                moveFile: 'Move File', copyFile: 'Copy File', currentPath: 'Current path',
+                targetPathPlaceholder: 'Enter destination path (e.g. folder/newname.txt)', uploadQueue: 'Upload Queue',
+                selected: '${count} selected', selectBucketFirst: 'Please list buckets first', selectBucket: 'Select a bucket',
+                foundBuckets: 'Found ${count} buckets', folderEmpty: 'Folder is empty', loadMore: 'Load More',
+                endpointRequired: 'Please enter Endpoint', endpointNoPath: 'Endpoint should not contain path',
+                bucketRequired: 'Please enter Bucket name', bucketLength: 'Bucket name should be 3-63 characters',
+                bucketChars: 'Bucket name can only contain lowercase letters, numbers, dots and hyphens', corsLoadFailed: 'Failed to load CORS config',
+                uploading: 'Uploading...', uploadingProgress: 'Uploading ${percent}%', preparingUpload: 'Preparing upload...',
+                akSkRequired: 'Please fill in AK and SK', bucketSelectRequired: 'Please select a bucket', getBucketsFailed: 'Failed to get bucket list',
+                connectFailed: 'Connection failed', switchBucketSuccess: 'Switched to bucket', switchFailed: 'Failed to switch',
+                noMoreFiles: 'No more files', renameInvalidChars: 'File name cannot contain / or \\',
+                createFolderSuccess: 'Folder created successfully', createFolderFailed: 'Failed to create folder',
+                deleteSuccess: 'Deleted successfully', deleteFailed: 'Failed to delete', deleteSelected: 'Please select files to delete',
+                uploadSuccess: 'Uploaded successfully', uploadFailed: 'Upload failed', uploadTimeout: 'Upload request timeout',
+                uploadPrepareFailed: 'Failed to prepare upload', downloadPrepareFailed: 'Failed to prepare download', previewFailed: 'Preview failed',
+                previewNotSupported: 'Preview not supported for this file type', moveSuccess: 'Moved successfully', moveFailed: 'Move failed',
+                copySuccess: 'Copied successfully', copyFailed: 'Copy failed', renameSuccess: 'Renamed successfully', renameFailed: 'Rename failed',
+                corsSaveSuccess: 'CORS config saved', corsSaveFailed: 'Failed to save CORS config', corsDeleteSuccess: 'CORS config deleted',
+                corsDeleteFailed: 'Failed to delete CORS config', corsInvalid: 'Invalid CORS config format', noCORSConfig: 'No CORS config',
+                corsDeleteConfirm: 'Are you sure you want to delete CORS config?',
+                waiting: 'Waiting',
+                uploadComplete: 'Upload complete: ${success} succeeded, ${fail} failed',
+                uploadProgressDetail: 'Uploading ${percent}% (${loaded} / ${total})',
+                deleteConfirmFolders: 'Delete ${count} selected items? Folders must be empty to delete!',
+                deleteConfirmFiles: 'Delete ${count} selected files? This cannot be undone!',
+                deleteResult: 'Delete complete: ${success} succeeded, ${fail} failed',
+                deleteSuccessCount: 'Successfully deleted ${count} items',
+                previewDownload: 'Click to download',
+                previewNotAvailable: 'Cannot preview this file type',
+            }
+        };
+        let currentLang = 'zh';
+        function setLanguage(lang) { currentLang = (lang === 'en' || lang === 'en-US') ? 'en' : 'zh'; }
+        function t(key, params) {
+            let text = i18n[currentLang][key] || key;
+            if (params) { Object.keys(params).forEach(k => { text = text.replace('${'+k+'}', params[k]); }); }
+            return text;
+        }
+        (function detectLanguage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const langParam = urlParams.get('lang');
+            if (langParam) { setLanguage(langParam); } else { setLanguage(navigator.language || navigator.userLanguage); }
+        })();
+
+        function applyI18n() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.textContent = t(key);
+            });
+            if ($('pageTitle')) $('pageTitle').textContent = t('appTitle');
+            if ($('h1Title')) $('h1Title').textContent = t('appTitle');
+        }
+
+        document.addEventListener('DOMContentLoaded', applyI18n);
+
+        const $ = id => document.getElementById(id);
+        const showError = msg => { $('errorMsg').textContent = msg; $('errorMsg').style.display = 'block'; $('successMsg').style.display = 'none'; };
+        const showSuccess = msg => { $('successMsg').textContent = msg; $('successMsg').style.display = 'block'; $('errorMsg').style.display = 'none'; };
+        const hideMsg = () => { $('errorMsg').style.display = 'none'; $('successMsg').style.display = 'none'; };
+        const setLoading = loading => document.body.classList.toggle('loading', loading);
+
+        // XSS 防护：转义 HTML 特殊字符
+        const escapeHtml = text => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        let currentCreds = null;
+        let selectedKeys = new Set();
+        let currentPrefix = '';
+        let currentMarker = '';
+        let hasMore = false;
+        let clickTimer = null;
+        let clickDelay = 250;
+        let eventDelegationInitialized = false;
+        let breadcrumbDelegationInitialized = false;
+
+        // 维护当前显示的文件夹和文件列表
+        let currentFolders = new Map();
+        let currentFiles = [];
+
+        let sortConfig = { field: 'name', direction: 'asc' };
+
+        // CORS示例配置
+        const corsExample = JSON.stringify({
+            "CORSRules": [
+                {
+                    "AllowedOrigin": ["*"],
+                    "AllowedMethod": ["PUT", "POST", "DELETE"],
+                    "AllowedHeader": ["*"]
+                },
+                {
+                    "AllowedOrigin": ["*"],
+                    "AllowedMethod": ["GET", "HEAD"]
+                }
+            ]
+        }, null, 2);
+
+        // 保存凭证到 sessionStorage
+        function saveCreds(creds) {
+            sessionStorage.setItem('s3creds', JSON.stringify(creds));
+        }
+
+        // 从 sessionStorage 加载凭证
+        function loadCreds() {
+            const saved = sessionStorage.getItem('s3creds');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // 填充表单
+        function fillForm(creds) {
+            if (!creds) return;
+            $('endpoint').value = creds.endpoint || '';
+            $('ak').value = creds.ak || '';
+            $('sk').value = creds.sk || '';
+            if (creds.bucket) {
+                const select = $('bucket');
+                const escapedBucket = escapeHtml(creds.bucket);
+                select.innerHTML = `<option value="${escapedBucket}">${escapedBucket}</option>`;
+                select.disabled = false;
+                select.value = creds.bucket;
+            }
+            $('ssl').checked = creds.ssl !== false;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+        }
+
+        function formatTime(s) {
+            if (!s) return '-';
+            const d = new Date(s);
+            return d.toLocaleString('zh-CN');
+        }
+
+        // 重置分页和选择状态
+        function resetState() {
+            selectedKey = null;
+            selectedKeys = new Set();
+            currentMarker = '';
+            hasMore = false;
+            currentFolders = new Map();
+            currentFiles = [];
+            sortConfig = { field: 'name', direction: 'asc' };
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.classList.remove('asc', 'desc');
+                if (th.dataset.sort === 'name') th.classList.add('asc');
+            });
+            updateSelectedCount();
+            updateHeaderCheckbox();
+        }
+
+        // 更新选中计数显示
+        function updateSelectedCount() {
+            const count = selectedKeys.size;
+            const el = $('selectedCount');
+            if (count > 0) {
+                el.textContent = t('selected', { count: count });
+                el.style.display = 'inline';
+            } else {
+                el.style.display = 'none';
+            }
+            updateActionButtons();
+        }
+
+        // 更新表头复选框状态
+        function updateHeaderCheckbox() {
+            const checkbox = $('headerCheckbox');
+            const allItems = [...currentFolders.keys(), ...currentFiles.map(f => f.key)];
+            if (allItems.length === 0) {
+                checkbox.checked = false;
+                checkbox.indeterminate = false;
+            } else if (selectedKeys.size === allItems.length) {
+                checkbox.checked = true;
+                checkbox.indeterminate = false;
+            } else if (selectedKeys.size > 0) {
+                checkbox.checked = false;
+                checkbox.indeterminate = true;
+            } else {
+                checkbox.checked = false;
+                checkbox.indeterminate = false;
+            }
+        }
+
+        // 更新操作按钮状态
+        function updateActionButtons() {
+            const hasFiles = currentFolders.size > 0 || currentFiles.length > 0;
+            const hasSelected = selectedKeys.size > 0;
+            const hasSingleSelected = selectedKeys.size === 1;
+            const selectedIsFolder = hasSingleSelected && [...selectedKeys][0].endsWith('/');
+
+            $('selectAllBtn').disabled = !hasFiles;
+            $('headerCheckbox').disabled = !hasFiles;
+
+            // 单选操作
+            $('previewBtn').disabled = !hasSingleSelected || selectedIsFolder;
+            $('renameBtn').disabled = !hasSingleSelected || selectedIsFolder;
+            $('moveBtn').disabled = !hasSingleSelected || selectedIsFolder;
+            $('copyBtn').disabled = !hasSingleSelected || selectedIsFolder;
+            $('downloadBtn').disabled = !hasSelected || [...selectedKeys].every(k => k.endsWith('/'));
+
+            // 批量操作
+            $('deleteBtn').disabled = !hasSelected;
+        }
+
+        // 验证 Endpoint 格式
+        function validateEndpoint(endpoint) {
+            if (!endpoint) return t('endpointRequired');
+            if (endpoint.includes('/') && !endpoint.startsWith('http')) {
+                return t('endpointNoPath');
+            }
+            return null;
+        }
+
+        // 验证 Bucket 名称
+        function validateBucket(bucket) {
+            if (!bucket) return t('bucketRequired');
+            if (bucket.length < 3 || bucket.length > 63) {
+                return t('bucketLength');
+            }
+            if (!/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(bucket) && bucket !== 'a' && bucket !== 'b') {
+                if (!/^[a-z0-9.-]+$/.test(bucket)) {
+                    return t('bucketChars');
+                }
+            }
+            return null;
+        }
+
+        // 打开CORS配置弹窗
+        async function openCorsModal() {
+            $('corsModal').style.display = 'flex';
+            $('corsEditor').value = '';
+
+            try {
+                const res = await fetch('/cors/get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentCreds)
+                });
+                const data = await res.json();
+                if (data.success && data.config) {
+                    try {
+                        const parsed = JSON.parse(data.config);
+                        $('corsEditor').value = JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        $('corsEditor').value = data.config;
+                    }
+                }
+            } catch (e) {
+                console.error(t('corsLoadFailed'), e);
+            }
+        }
+
+        // 显示上传进度
+        function showProgress(percent, text) {
+            let overlay = $('progressOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'progressOverlay';
+                overlay.className = 'progress-overlay';
+                overlay.innerHTML = `
+                    <div class="progress-box">
+                        <div class="progress-text" id="progressText">${t('uploading')}</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            $('progressFill').style.width = percent + '%';
+            $('progressText').textContent = text || t('uploadingProgress', { percent });
+            overlay.style.display = 'flex';
+        }
+
+        function hideProgress() {
+            const overlay = $('progressOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        async function listBuckets() {
+            const creds = {
+                endpoint: $('endpoint').value.trim(),
+                ak: $('ak').value.trim(),
+                sk: $('sk').value.trim(),
+                ssl: $('ssl').checked
+            };
+
+            const endpointErr = validateEndpoint(creds.endpoint);
+            if (endpointErr) { showError(endpointErr); return; }
+            if (!creds.ak || !creds.sk) {
+                showError(t('akSkRequired'));
+                return;
+            }
+
+            setLoading(true);
+            hideMsg();
+            try {
+                const res = await fetch('/buckets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(creds)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const select = $('bucket');
+                    select.innerHTML = '<option value="">' + t('selectBucket') + '</option>';
+                    data.buckets.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.name;
+                        opt.textContent = b.name;
+                        select.appendChild(opt);
+                    });
+                    select.disabled = false;
+                    $('connectBtn').disabled = true;
+                    showSuccess(t('foundBuckets', { count: data.buckets.length }));
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('getBucketsFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function connect() {
+            hideMsg();
+            const creds = {
+                endpoint: $('endpoint').value.trim(),
+                ak: $('ak').value.trim(),
+                sk: $('sk').value.trim(),
+                bucket: $('bucket').value,
+                ssl: $('ssl').checked
+            };
+
+            const endpointErr = validateEndpoint(creds.endpoint);
+            if (endpointErr) { showError(endpointErr); return; }
+            if (!creds.bucket) {
+                showError(t('bucketSelectRequired'));
+                return;
+            }
+            if (!creds.ak || !creds.sk) {
+                showError(t('akSkRequired'));
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const res = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(creds)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentCreds = creds;
+                    saveCreds(creds);
+                    showSuccess(data.message);
+                    $('uploadBtn').disabled = false;
+                    $('mkdirBtn').disabled = false;
+                    $('corsBtn').disabled = false;
+                    $('logoutBtn').style.display = 'block';
+                    $('connectBtn').style.display = 'none';
+                    $('listBucketsBtn').style.display = 'none';
+                    $('switchBucketBtn').style.display = 'none';
+                    $('breadcrumb').style.display = 'flex';
+                    resetState();
+                    await listObjects();
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('connectFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 切换存储桶
+        async function switchBucket() {
+            const newBucket = $('bucket').value;
+            if (!newBucket || newBucket === currentCreds.bucket) return;
+
+            currentCreds.bucket = newBucket;
+            saveCreds(currentCreds);
+
+            currentPrefix = '';
+            resetState();
+            $('switchBucketBtn').style.display = 'none';
+
+            setLoading(true);
+            try {
+                const res = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentCreds)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(t('switchBucketSuccess') + ': ' + newBucket);
+                    await listObjects();
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('switchFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function sortItems(folders, files, config) {
+            const { field, direction } = config;
+            const modifier = direction === 'asc' ? 1 : -1;
+
+            const sortedFolders = [...folders].sort((a, b) =>
+                a.name.localeCompare(b.name, 'zh-CN') * modifier
+            );
+
+            // 预计算时间戳以避免在排序比较器中重复创建 Date 对象
+            const filesWithTimestamp = files.map(f => ({
+                ...f,
+                _ts: f.lastModified ? new Date(f.lastModified).getTime() : 0
+            }));
+
+            const sortedFiles = filesWithTimestamp.sort((a, b) => {
+                let comparison = 0;
+                switch (field) {
+                    case 'name':
+                        comparison = a.name.localeCompare(b.name, 'zh-CN');
+                        break;
+                    case 'size':
+                        comparison = (a.size || 0) - (b.size || 0);
+                        break;
+                    case 'lastModified':
+                        comparison = a._ts - b._ts;
+                        break;
+                    default:
+                        comparison = a.name.localeCompare(b.name, 'zh-CN');
+                }
+                return comparison * modifier;
+            });
+
+            return [...sortedFolders, ...sortedFiles];
+        }
+
+        function renderFileList() {
+            const tbody = $('fileBody');
+            const items = sortItems(
+                Array.from(currentFolders.values()),
+                currentFiles,
+                sortConfig
+            );
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state">' + t('folderEmpty') + '</td></tr>';
+                updateLoadMoreBtn();
+                updateActionButtons();
+                return;
+            }
+
+            const html = items.map(item => {
+                const escapedKey = escapeHtml(item.key);
+                const escapedName = escapeHtml(item.name);
+                const checked = selectedKeys.has(item.key) ? 'checked' : '';
+                return `
+                <tr data-key="${escapedKey}" data-folder="${item.isFolder}">
+                    <td class="checkbox-col"><input type="checkbox" class="row-checkbox" data-key="${escapedKey}" ${checked}></td>
+                    <td class="file-key">
+                        <span class="file-name">
+                            <span class="${item.isFolder ? 'folder-icon' : 'file-icon'}">${item.isFolder ? '📁' : '📄'}</span>
+                            <span>${escapedName}</span>
+                        </span>
+                    </td>
+                    <td class="file-size">${item.isFolder ? '-' : formatSize(item.size)}</td>
+                    <td class="file-time">${item.isFolder ? '-' : formatTime(item.lastModified)}</td>
+                </tr>`;
+            }).join('');
+
+            tbody.innerHTML = html;
+            updateLoadMoreBtn();
+            initEventDelegation();
+            updateHeaderCheckbox();
+            updateActionButtons();
+        }
+
+        async function listObjects(append = false) {
+            if (!currentCreds) return;
+
+            try {
+                if (!append) {
+                    currentMarker = '';
+                }
+
+                const res = await fetch('/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...currentCreds,
+                        prefix: currentPrefix,
+                        limit: 500,
+                        marker: currentMarker
+                    })
+                });
+                const data = await res.json();
+
+                hasMore = data.hasMore || false;
+                currentMarker = data.nextMarker || '';
+
+                updateBreadcrumb();
+                $('backBtn').disabled = currentPrefix === '';
+
+                const tbody = $('fileBody');
+
+                if (!append) {
+                    currentFolders = new Map();
+                    currentFiles = [];
+                }
+
+                for (const folderKey of data.folders || []) {
+                    const folderName = folderKey.substring(currentPrefix.length);
+                    if (folderName && !currentFolders.has(folderName)) {
+                        currentFolders.set(folderName, {
+                            key: folderKey,
+                            name: folderName,
+                            isFolder: true
+                        });
+                    }
+                }
+
+                for (const obj of data.objects || []) {
+                    const relativePath = obj.key.substring(currentPrefix.length);
+                    if (relativePath) {
+                        currentFiles.push({
+                            ...obj,
+                            name: relativePath,
+                            isFolder: false
+                        });
+                    }
+                }
+
+                renderFileList();
+            } catch (e) {
+                showError(t('getBucketsFailed') + ': ' + e.message);
+            }
+        }
+
+        // 更新加载更多按钮状态
+        function updateLoadMoreBtn() {
+            let btn = $('loadMoreBtn');
+            if (!btn) {
+                const table = $('fileTable');
+                btn = document.createElement('button');
+                btn.id = 'loadMoreBtn';
+                btn.className = 'load-more-btn';
+                btn.textContent = t('loadMore');
+                btn.onclick = () => listObjects(true);
+                table.insertAdjacentElement('afterend', btn);
+            }
+            btn.style.display = hasMore ? 'block' : 'none';
+            btn.disabled = false;
+        }
+
+        // 处理行点击
+        function handleRowClick(e) {
+            // 如果点击的是复选框，不处理行点击
+            if (e.target.classList.contains('row-checkbox')) return;
+
+            const tr = e.target.closest('tr');
+            if (!tr || !tr.dataset.key) return;
+
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+                return;
+            }
+
+            clickTimer = setTimeout(() => {
+                clickTimer = null;
+                const tbody = $('fileBody');
+                tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+                tr.classList.add('selected');
+                selectedKeys = new Set([tr.dataset.key]);
+                updateSelectedCount();
+                updateHeaderCheckbox();
+            }, clickDelay);
+        }
+
+        // 处理行双击
+        function handleRowDblClick(e) {
+            const tr = e.target.closest('tr');
+            if (!tr || !tr.dataset.key) return;
+
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+
+            if (tr.dataset.folder === 'true') {
+                currentPrefix = tr.dataset.key;
+                resetState();
+                listObjects();
+            } else {
+                // 双击文件触发预览
+                selectedKeys = new Set([tr.dataset.key]);
+                previewFile();
+            }
+        }
+
+        // 处理复选框变化
+        function handleCheckboxChange(e) {
+            if (!e.target.classList.contains('row-checkbox')) return;
+
+            const key = e.target.dataset.key;
+            if (e.target.checked) {
+                selectedKeys.add(key);
+            } else {
+                selectedKeys.delete(key);
+            }
+
+            // 更新行样式
+            const tr = e.target.closest('tr');
+            if (selectedKeys.has(key)) {
+                tr.classList.add('selected');
+            } else {
+                tr.classList.remove('selected');
+            }
+
+            updateSelectedCount();
+            updateHeaderCheckbox();
+        }
+
+        // 初始化事件委托
+        function initEventDelegation() {
+            if (eventDelegationInitialized) return;
+            eventDelegationInitialized = true;
+            const tbody = $('fileBody');
+            tbody.addEventListener('click', handleRowClick);
+            tbody.addEventListener('dblclick', handleRowDblClick);
+            tbody.addEventListener('change', handleCheckboxChange);
+        }
+
+        function initSortHeaders() {
+            const thead = document.querySelector('thead');
+            thead.addEventListener('click', function(e) {
+                const th = e.target.closest('th.sortable');
+                if (!th) return;
+
+                const field = th.dataset.sort;
+                if (sortConfig.field === field) {
+                    sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortConfig.field = field;
+                    sortConfig.direction = 'asc';
+                }
+
+                document.querySelectorAll('th.sortable').forEach(h => {
+                    h.classList.remove('asc', 'desc');
+                    if (h.dataset.sort === sortConfig.field) {
+                        h.classList.add(sortConfig.direction);
+                    }
+                });
+
+                renderFileList();
+            });
+        }
+
+        // 更新面包屑导航
+        function updateBreadcrumb() {
+            const breadcrumb = $('breadcrumb');
+            if (currentPrefix === '' && !currentCreds) {
+                breadcrumb.style.display = 'none';
+                return;
+            }
+            breadcrumb.style.display = 'flex';
+
+            const parts = currentPrefix.split('/').filter(p => p);
+            let html = '<span class="breadcrumb-item" data-prefix="">' + t('rootDir') + '</span>';
+
+            let prefix = '';
+            for (let i = 0; i < parts.length; i++) {
+                prefix += parts[i] + '/';
+                const escapedPart = escapeHtml(parts[i]);
+                html += `<span class="breadcrumb-sep">/</span>`;
+                html += `<span class="breadcrumb-item ${i === parts.length - 1 ? 'current' : ''}" data-prefix="${escapeHtml(prefix)}">${escapedPart}</span>`;
+            }
+
+            if (parts.length === 0) {
+                html = '<span class="breadcrumb-item current">' + t('rootDir') + '</span>';
+            }
+
+            breadcrumb.innerHTML = html;
+
+            if (!breadcrumbDelegationInitialized) {
+                breadcrumbDelegationInitialized = true;
+                breadcrumb.addEventListener('click', (e) => {
+                    const item = e.target.closest('.breadcrumb-item:not(.current)');
+                    if (!item) return;
+                    currentPrefix = item.dataset.prefix;
+                    resetState();
+                    listObjects();
+                });
+            }
+        }
+
+        // 返回上级目录
+        function goBack() {
+            if (currentPrefix === '') return;
+            const parts = currentPrefix.split('/').filter(p => p);
+            parts.pop();
+            currentPrefix = parts.length > 0 ? parts.join('/') + '/' : '';
+            resetState();
+            listObjects();
+        }
+
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const allKeys = [...currentFolders.keys(), ...currentFiles.map(f => f.key)];
+            const allSelected = selectedKeys.size === allKeys.length;
+
+            if (allSelected) {
+                selectedKeys = new Set();
+            } else {
+                selectedKeys = new Set(allKeys);
+            }
+
+            // 更新所有复选框
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = selectedKeys.has(cb.dataset.key);
+                const tr = cb.closest('tr');
+                if (selectedKeys.has(cb.dataset.key)) {
+                    tr.classList.add('selected');
+                } else {
+                    tr.classList.remove('selected');
+                }
+            });
+
+            updateSelectedCount();
+            updateHeaderCheckbox();
+        }
+
+        // 表头复选框点击
+        function handleHeaderCheckbox() {
+            toggleSelectAll();
+        }
+
+        // 上传文件（支持多文件）
+        async function uploadFiles() {
+            const input = $('fileInput');
+            input.click();
+
+            input.onchange = async () => {
+                const files = Array.from(input.files);
+                if (files.length === 0) return;
+
+                hideMsg();
+
+                if (files.length === 1) {
+                    // 单文件：使用原有进度条
+                    await uploadSingleFile(files[0]);
+                } else {
+                    // 多文件：显示队列
+                    await uploadMultipleFiles(files);
+                }
+                input.value = '';
+            };
+        }
+
+        // 上传单个文件
+        async function uploadSingleFile(file) {
+            const key = currentPrefix + file.name;
+
+            const formData = new FormData();
+            formData.append('endpoint', currentCreds.endpoint);
+            formData.append('ak', currentCreds.ak);
+            formData.append('sk', currentCreds.sk);
+            formData.append('bucket', currentCreds.bucket);
+            formData.append('ssl', currentCreds.ssl ? 'true' : 'false');
+            formData.append('key', key);
+            formData.append('file', file, key);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload');
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    const loaded = formatSize(e.loaded);
+                    const total = formatSize(e.total);
+                    showProgress(percent, t('uploadProgressDetail', { percent, loaded, total }));
+                }
+            };
+
+            xhr.onload = () => {
+                hideProgress();
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        showSuccess(data.message);
+                        listObjects();
+                    } else {
+                        showError(data.message);
+                    }
+                } catch (e) {
+                    showError(t('uploadFailed') + ': ' + '响应解析错误');
+                }
+            };
+
+            xhr.onerror = () => {
+                hideProgress();
+                showError(t('uploadFailed') + ': ' + '网络错误');
+            };
+
+            xhr.ontimeout = () => {
+                hideProgress();
+                showError(t('uploadTimeout'));
+            };
+
+            showProgress(0, t('preparingUpload'));
+            xhr.send(formData);
+        }
+
+        // 上传多个文件
+        async function uploadMultipleFiles(files) {
+            const queueList = $('uploadQueueList');
+            queueList.innerHTML = files.map(f => `
+                <div class="upload-item" data-name="${escapeHtml(f.name)}">
+                    <span class="name">${escapeHtml(f.name)}</span>
+                    <span class="status pending">${t('waiting')}</span>
+                </div>
+            `).join('');
+
+            $('uploadQueueModal').style.display = 'flex';
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const file of files) {
+                const key = currentPrefix + file.name;
+                const itemEl = queueList.querySelector(`[data-name="${escapeHtml(file.name)}"]`);
+                const statusEl = itemEl.querySelector('.status');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('endpoint', currentCreds.endpoint);
+                    formData.append('ak', currentCreds.ak);
+                    formData.append('sk', currentCreds.sk);
+                    formData.append('bucket', currentCreds.bucket);
+                    formData.append('ssl', currentCreds.ssl ? 'true' : 'false');
+                    formData.append('key', key);
+                    formData.append('file', file, key);
+
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        statusEl.textContent = t('uploadSuccess');
+                        statusEl.className = 'status success';
+                        successCount++;
+                    } else {
+                        statusEl.textContent = t('uploadFailed') + ': ' + data.message;
+                        statusEl.className = 'status error';
+                        failCount++;
+                    }
+                } catch (e) {
+                    statusEl.textContent = t('uploadFailed') + ': ' + e.message;
+                    statusEl.className = 'status error';
+                    failCount++;
+                }
+            }
+
+            showSuccess(t('uploadComplete', { success: successCount, fail: failCount }));
+            listObjects();
+        }
+
+        // 下载文件
+        async function downloadFile() {
+            if (!currentCreds || selectedKeys.size === 0) return;
+
+            const keysToDownload = [...selectedKeys].filter(k => !k.endsWith('/'));
+            if (keysToDownload.length === 0) {
+                showError(t('downloadPrepareFailed'));
+                return;
+            }
+
+            setLoading(true);
+            try {
+                for (const key of keysToDownload) {
+                    const res = await fetch('/download', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...currentCreds, key })
+                    });
+
+                    if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        showError(data.message || t('downloadPrepareFailed'));
+                        continue;
+                    }
+
+                    const disposition = res.headers.get('Content-Disposition');
+                    let filename = key.split('/').pop();
+                    if (disposition) {
+                        const match = disposition.match(/filename="(.+)"/);
+                        if (match) filename = match[1];
+                    }
+
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
+                showSuccess(t('deleteSuccess'));
+            } catch (e) {
+                showError(t('downloadPrepareFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 批量删除文件
+        async function deleteFiles() {
+            if (!currentCreds || selectedKeys.size === 0) return;
+
+            const keys = [...selectedKeys];
+            const hasFolder = keys.some(k => k.endsWith('/'));
+
+            let confirmMsg = hasFolder
+                ? t('deleteConfirmFolders', { count: keys.length })
+                : t('deleteConfirmFiles', { count: keys.length });
+
+            if (!confirm(confirmMsg)) return;
+
+            setLoading(true);
+            hideMsg();
+
+            try {
+                // 分离文件和文件夹
+                const files = keys.filter(k => !k.endsWith('/'));
+                const folders = keys.filter(k => k.endsWith('/'));
+
+                let successCount = 0;
+                let failCount = 0;
+
+                // 批量删除文件
+                if (files.length > 0) {
+                    const res = await fetch('/batch/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...currentCreds, keys: files })
+                    });
+                    const data = await res.json();
+                    successCount += data.results?.filter(r => r.success).length || 0;
+                    failCount += data.results?.filter(r => !r.success).length || 0;
+                }
+
+                // 单独删除文件夹（因为需要检查是否为空）
+                for (const folder of folders) {
+                    const res = await fetch('/rmdir', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...currentCreds, folder })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                }
+
+                if (failCount === 0) {
+                    showSuccess(t('deleteSuccessCount', { count: successCount }));
+                } else {
+                    showError(t('deleteResult', { success: successCount, fail: failCount }));
+                }
+
+                selectedKeys = new Set();
+                await listObjects();
+            } catch (e) {
+                showError(t('deleteFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 预览文件
+        async function previewFile() {
+            if (!currentCreds || selectedKeys.size !== 1) return;
+
+            const key = [...selectedKeys][0];
+            if (key.endsWith('/')) {
+                showError(t('previewFailed') + ': 不能预览文件夹');
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const res = await fetch('/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...currentCreds, key })
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    showError(data.message || t('previewFailed'));
+                    setLoading(false);
+                    return;
+                }
+
+                $('previewTitle').textContent = key.split('/').pop();
+                const content = $('previewContent');
+
+                // 判断内容类型
+                const contentType = data.contentType || '';
+                const ext = key.split('.').pop().toLowerCase();
+
+                if (data.url) {
+                    // 使用预签名 URL
+                    if (contentType.startsWith('video/')) {
+                        content.innerHTML = `<video src="${data.url}" controls></video>`;
+                    } else if (contentType.startsWith('audio/')) {
+                        content.innerHTML = `<audio src="${data.url}" controls></audio>`;
+                    } else if (ext === 'pdf') {
+                        content.innerHTML = `<iframe src="${data.url}"></iframe>`;
+                    } else {
+                        content.innerHTML = `<p>${t('previewNotAvailable')}, <a href="${data.url}" target="_blank">${t('previewDownload')}</a></p>`;
+                    }
+                } else if (data.data) {
+                    // 内联数据
+                    if (contentType.startsWith('image/')) {
+                        content.innerHTML = `<img src="data:${contentType};base64,${data.data}" alt="${escapeHtml(key)}">`;
+                    } else {
+                        // 文本内容
+                        content.innerHTML = `<pre>${escapeHtml(data.data)}</pre>`;
+                    }
+                } else {
+                    content.innerHTML = '<p>' + t('previewNotSupported') + '</p>';
+                }
+
+                $('previewModal').style.display = 'flex';
+            } catch (e) {
+                showError(t('previewFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 重命名文件
+        async function renameFile() {
+            if (!currentCreds || selectedKeys.size !== 1) return;
+
+            const oldKey = [...selectedKeys][0];
+            if (oldKey.endsWith('/')) {
+                showError(t('renameFailed') + ': 不能重命名文件夹');
+                return;
+            }
+
+            const oldName = oldKey.split('/').pop();
+            const prefix = oldKey.substring(0, oldKey.length - oldName.length);
+
+            $('renameOldName').textContent = oldName;
+            $('renameInput').value = oldName;
+            $('renameModal').style.display = 'flex';
+            $('renameInput').focus();
+            $('renameInput').select();
+
+            // 保存当前操作信息
+            $('renameModal').dataset.oldKey = oldKey;
+            $('renameModal').dataset.prefix = prefix;
+        }
+
+        // 确认重命名
+        async function confirmRename() {
+            const oldKey = $('renameModal').dataset.oldKey;
+            const prefix = $('renameModal').dataset.prefix;
+            const newName = $('renameInput').value.trim();
+
+            if (!newName) {
+                showError(t('renameInvalidChars'));
+                return;
+            }
+
+            const newKey = prefix + newName;
+
+            setLoading(true);
+            try {
+                const res = await fetch('/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...currentCreds, oldKey, newKey })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(data.message);
+                    $('renameModal').style.display = 'none';
+                    selectedKeys = new Set();
+                    await listObjects();
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('renameFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 移动文件
+        async function moveFile() {
+            if (!currentCreds || selectedKeys.size !== 1) return;
+
+            const srcKey = [...selectedKeys][0];
+            if (srcKey.endsWith('/')) {
+                showError(t('moveFailed') + ': 不能移动文件夹');
+                return;
+            }
+
+            $('moveCopyTitle').textContent = t('moveFile');
+            $('moveCopySrc').textContent = srcKey;
+            $('moveCopyInput').value = srcKey;
+            $('moveCopyModal').style.display = 'flex';
+            $('moveCopyInput').focus();
+            $('moveCopyInput').select();
+
+            $('moveCopyModal').dataset.srcKey = srcKey;
+            $('moveCopyModal').dataset.mode = 'move';
+        }
+
+        // 复制文件
+        async function copyFile() {
+            if (!currentCreds || selectedKeys.size !== 1) return;
+
+            const srcKey = [...selectedKeys][0];
+            if (srcKey.endsWith('/')) {
+                showError(t('copyFailed') + ': 不能复制文件夹');
+                return;
+            }
+
+            $('moveCopyTitle').textContent = t('copyFile');
+            $('moveCopySrc').textContent = srcKey;
+            $('moveCopyInput').value = srcKey;
+            $('moveCopyModal').style.display = 'flex';
+            $('moveCopyInput').focus();
+            $('moveCopyInput').select();
+
+            $('moveCopyModal').dataset.srcKey = srcKey;
+            $('moveCopyModal').dataset.mode = 'copy';
+        }
+
+        // 确认移动/复制
+        async function confirmMoveCopy() {
+            const srcKey = $('moveCopyModal').dataset.srcKey;
+            const dstKey = $('moveCopyInput').value.trim();
+            const mode = $('moveCopyModal').dataset.mode;
+
+            if (!dstKey) {
+                showError(t('moveFailed') + ': 请输入目标路径');
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const endpoint = mode === 'move' ? '/move' : '/copy';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...currentCreds, srcKey, dstKey })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(data.message);
+                    $('moveCopyModal').style.display = 'none';
+                    selectedKeys = new Set();
+                    await listObjects();
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('moveFailed') + ': ' + (mode === 'move' ? t('move') : t('copy')) + ' ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function mkdir() {
+            if (!currentCreds) return;
+
+            const folder = prompt(t('newFolder') + ':');
+            if (!folder || !folder.trim()) return;
+
+            setLoading(true);
+            hideMsg();
+
+            const folderPath = currentPrefix + folder.trim();
+
+            try {
+                const res = await fetch('/mkdir', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...currentCreds, folder: folderPath })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(data.message);
+                    await listObjects();
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('createFolderFailed') + ': ' + e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 事件绑定
+        $('connectBtn').addEventListener('click', connect);
+        $('listBucketsBtn').addEventListener('click', listBuckets);
+        $('uploadBtn').addEventListener('click', uploadFiles);
+        $('downloadBtn').addEventListener('click', downloadFile);
+        $('deleteBtn').addEventListener('click', deleteFiles);
+        $('mkdirBtn').addEventListener('click', mkdir);
+        $('backBtn').addEventListener('click', goBack);
+        $('switchBucketBtn').addEventListener('click', switchBucket);
+        $('selectAllBtn').addEventListener('click', toggleSelectAll);
+        $('headerCheckbox').addEventListener('change', handleHeaderCheckbox);
+        $('previewBtn').addEventListener('click', previewFile);
+        $('renameBtn').addEventListener('click', renameFile);
+        $('moveBtn').addEventListener('click', moveFile);
+        $('copyBtn').addEventListener('click', copyFile);
+
+        // CORS配置相关事件
+        $('corsBtn').addEventListener('click', openCorsModal);
+        $('corsLoadExample').addEventListener('click', () => {
+            $('corsEditor').value = corsExample;
+        });
+
+        $('corsSave').addEventListener('click', async () => {
+            const config = $('corsEditor').value.trim();
+
+            try {
+                const res = await fetch('/cors/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...currentCreds,
+                        config: config
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(data.message);
+                    $('corsModal').style.display = 'none';
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('corsSaveFailed') + ': ' + e.message);
+            }
+        });
+
+        $('corsDelete').addEventListener('click', async () => {
+            if (!confirm(t('corsDeleteConfirm'))) return;
+
+            try {
+                const res = await fetch('/cors/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...currentCreds,
+                        config: ''
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess(t('corsDeleteSuccess'));
+                    $('corsEditor').value = '';
+                } else {
+                    showError(data.message);
+                }
+            } catch (e) {
+                showError(t('deleteFailed') + ': ' + e.message);
+            }
+        });
+
+        $('corsCancel').addEventListener('click', () => {
+            $('corsModal').style.display = 'none';
+        });
+
+        // 预览弹窗
+        $('previewClose').addEventListener('click', () => {
+            $('previewModal').style.display = 'none';
+            $('previewContent').innerHTML = '';
+        });
+
+        // 重命名弹窗
+        $('renameCancel').addEventListener('click', () => {
+            $('renameModal').style.display = 'none';
+        });
+        $('renameConfirm').addEventListener('click', confirmRename);
+        $('renameInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') confirmRename();
+        });
+
+        // 移动/复制弹窗
+        $('moveCopyCancel').addEventListener('click', () => {
+            $('moveCopyModal').style.display = 'none';
+        });
+        $('moveCopyConfirm').addEventListener('click', confirmMoveCopy);
+        $('moveCopyInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') confirmMoveCopy();
+        });
+
+        // 上传队列弹窗
+        $('uploadQueueClose').addEventListener('click', () => {
+            $('uploadQueueModal').style.display = 'none';
+        });
+
+        // 存储桶选择变化时
+        $('bucket').addEventListener('change', () => {
+            if (currentCreds) {
+                $('switchBucketBtn').style.display = $('bucket').value !== currentCreds.bucket ? 'inline-block' : 'none';
+            } else {
+                $('connectBtn').disabled = !$('bucket').value;
+            }
+        });
+
+        // 回车连接
+        ['endpoint', 'ak', 'sk', 'bucket'].forEach(id => {
+            $(id).addEventListener('keypress', e => { if (e.key === 'Enter') connect(); });
+        });
+
+        // 页面加载时自动恢复连接
+        (async function autoReconnect() {
+            const saved = loadCreds();
+            if (saved) {
+                fillForm(saved);
+                setLoading(true);
+                try {
+                    const res = await fetch('/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(saved)
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        currentCreds = saved;
+                        $('uploadBtn').disabled = false;
+                        $('mkdirBtn').disabled = false;
+                        $('corsBtn').disabled = false;
+                        $('logoutBtn').style.display = 'block';
+                        $('connectBtn').style.display = 'none';
+                        $('listBucketsBtn').style.display = 'none';
+                        $('switchBucketBtn').style.display = 'none';
+                        $('breadcrumb').style.display = 'flex';
+                        await listObjects();
+                    }
+                } catch (e) {
+                    // 静默处理
+                } finally {
+                    setLoading(false);
+                }
+            }
+        })();
+
+        // 退出登录
+        function logout() {
+            currentCreds = null;
+            selectedKeys = new Set();
+            sessionStorage.removeItem('s3creds');
+            $('endpoint').value = '';
+            $('ak').value = '';
+            $('sk').value = '';
+            $('bucket').innerHTML = '<option value="">' + t('selectBucketFirst') + '</option>';
+            $('bucket').disabled = true;
+            $('ssl').checked = true;
+            $('uploadBtn').disabled = true;
+            $('mkdirBtn').disabled = true;
+            $('downloadBtn').disabled = true;
+            $('deleteBtn').disabled = true;
+            $('corsBtn').disabled = true;
+            $('connectBtn').disabled = true;
+            $('logoutBtn').style.display = 'none';
+            $('connectBtn').style.display = 'block';
+            $('listBucketsBtn').style.display = 'inline-block';
+            $('switchBucketBtn').style.display = 'none';
+            $('breadcrumb').style.display = 'none';
+            $('fileBody').innerHTML = '<tr><td colspan="4" class="empty-state">' + t('connectFirst') + '</td></tr>';
+            hideMsg();
+        }
+
+        $('logoutBtn').addEventListener('click', logout);
+        initSortHeaders();
+    </script>
+</body>
+</html>
